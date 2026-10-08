@@ -120,7 +120,7 @@ function makeGroups(){
 /* ---------- views ---------- */
 const app=document.getElementById("app"),crumb=document.getElementById("crumb");
 const nameBtns=()=>TEACHERS.map(k=>`<button class="btn big" style="background:${TC[k]}" data-go="#/t/${k}">${k}</button>`).join("");
-function vWelcome(){crumb.textContent="";return`<div class="center"><span class="eyebrow">✨ Intervention Time</span><h1>Welcome, 2nd Grade Team</h1>
+function vWelcome(){crumb.textContent="";return`<div class="center"><span class="eyebrow">✨ Intervention Time</span><h1>Welcome, Prairie Vale</h1>
 <div class="row"><button class="btn pri" data-go="#/groups">View RTI groupings</button></div>
 <p class="mut">or select your name</p><div class="row names">${nameBtns()}</div>
 <p class="mut" style="margin-top:44px;font-size:.88rem">Just exploring? <button class="btn sm" data-act="demo">Fill empty skills with sample data</button> <button class="btn sm" data-act="reset">Reset everything</button></p></div>`}
