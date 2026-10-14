@@ -103,10 +103,10 @@ function makeGroups(){
  const bad=new Set(S.pairs.map(p=>p[0]+"|"+p[1]).concat(S.pairs.map(p=>p[1]+"|"+p[0])));
  const who={};
  segs.forEach(([i,j],ti)=>{const col=cols[ti],by={};arr.slice(i,j).forEach(s=>(by[s.s]=by[s.s]||[]).push(s));
-  Object.keys(by).map(Number).sort((a,b)=>a-b).forEach(q=>{const st=by[q];(who[q]=who[q]||new Set()).add(ti);let g=Math.ceil(st.length/6),gr;
+  Object.keys(by).map(Number).sort((a,b)=>a-b).forEach(q=>{const st=by[q];(who[q]=who[q]||new Set()).add(ti);const maxCap=(q===18||q===19)?7:6;let g=Math.ceil(st.length/maxCap),gr;
    for(;;g++){gr=Array.from({length:g},()=>[]);let ok=true;
     const deg=s=>st.filter(o=>bad.has(s.id+"|"+o.id)).length;
-    for(const s of st.slice().sort((a,b)=>deg(b)-deg(a))){const opts=gr.filter(x=>x.length<6&&!x.some(o=>bad.has(s.id+"|"+o.id))).sort((a,b)=>a.length-b.length);
+    for(const s of st.slice().sort((a,b)=>deg(b)-deg(a))){const opts=gr.filter(x=>x.length<maxCap&&!x.some(o=>bad.has(s.id+"|"+o.id))).sort((a,b)=>a.length-b.length);
      if(!opts.length){ok=false;break}opts[0].push(s)}
     if(ok||g>=st.length)break}
    gr.filter(x=>x.length).forEach((x,gi,ar)=>col.groups.push({skill:q,part:ar.length>1?gi+1:0,students:x,ti}))});
