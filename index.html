@@ -66,6 +66,9 @@ td input[type=checkbox]{width:22px;height:22px;accent-color:var(--acc2)}
 <main id="app"></main>
 <script>
 const SK=["Upper Letter ID","Lower Letter ID","Vowel Names","Consonant Sounds","Long Vowel Sounds","Short Vowel Sounds","CVC Short Vowel","Onset Rime","Beginning Consonant Digraphs","Ending Consonant Digraphs","Beginning Consonant Blends","Multi-Syllable Closed","Ending Consonant Blends","Long Vowel Silent E","Long Vowel Digraphs","Other Vowel Digraphs","Vowel Diphthongs","R/L Controlled","Multi-Syllable Open","Enrichment"];
+const MERGE={7:6,9:8,12:10};            // Onset Rime→CVC, Ending Digraphs→Digraphs, Ending Blends→Blends
+const GN={6:"CVC",8:"Digraphs",10:"Blends"}; // display names for merged groups
+const LIM=[[15,18],[18,22],[18,22],[18,22],[20,25]]; // per-teacher min/max class size
 const TC={Magee:"#FFD93D",Eppes:"#FF8CC6",Bosse:"#5FD6EE",Gober:"#B197FC",Vanpool:"#FFA24D"};
 const CC=[["#7C3AED","#C026D3"],["#EC4899","#F97316"],["#0EA5E9","#6366F1"],["#10B981","#0EA5E9"],["#F59E0B","#EF4444"]];
 const RAW={
@@ -93,16 +96,16 @@ function makeGroups(){
  const N=arr.length,T=TEACHERS.length,cols=TEACHERS.map(()=>({groups:[],count:0,warn:[]}));
  if(!N)return{cols,unset,excl,total:0};
  const k=Math.min(T,N),avg=N/k;
- const cost=(i,j)=>{const sz=j-i,span=arr[j-1].s-arr[i].s;let p=(sz-avg)**2*.05;
-  if(sz<18)p+=(18-sz)**2*1e5;if(sz>22)p+=(sz-22)**2*1e5;if(span>3)p+=(span-3)*8;
-  if(j<N&&arr[j-1].s===arr[j].s)p+=30;return p};
+  const cost=(i,j,ti)=>{const [lo,hi]=LIM[ti]||[18,22],sz=j-i,span=arr[j-1].s-arr[i].s;let p=(sz-(lo+hi)/2)**2*.05;
+  if(sz<lo)p+=(lo-sz)**2*1e5;if(sz>hi)p+=(sz-hi)**2*1e5;if(span>3)p+=(span-3)*8;
+  if(j<N&&(MERGE[arr[j-1].s]??arr[j-1].s)===(MERGE[arr[j].s]??arr[j].s))p+=30;return p};
  const INF=1e18,dp=Array.from({length:k+1},()=>Array(N+1).fill(INF)),bk=Array.from({length:k+1},()=>Array(N+1).fill(0));
  dp[0][0]=0;
- for(let m=1;m<=k;m++)for(let j=m;j<=N;j++)for(let i=m-1;i<j;i++){if(dp[m-1][i]>=INF)continue;const c=dp[m-1][i]+cost(i,j);if(c<dp[m][j]){dp[m][j]=c;bk[m][j]=i}}
+ for(let m=1;m<=k;m++)for(let j=m;j<=N;j++)for(let i=m-1;i<j;i++){if(dp[m-1][i]>=INF)continue;const c=dp[m-1][i]+cost(i,j,m-1);if(c<dp[m][j]){dp[m][j]=c;bk[m][j]=i}}
  const segs=[];let e=N;for(let m=k;m>=1;m--){const i=bk[m][e];segs.unshift([i,e]);e=i}
  const bad=new Set(S.pairs.map(p=>p[0]+"|"+p[1]).concat(S.pairs.map(p=>p[1]+"|"+p[0])));
  const who={};
- segs.forEach(([i,j],ti)=>{const col=cols[ti],by={};arr.slice(i,j).forEach(s=>(by[s.s]=by[s.s]||[]).push(s));
+ segs.forEach(([i,j],ti)=>{const col=cols[ti],by={};arr.slice(i,j).forEach(s=>{const q0=MERGE[s.s]??s.s;(by[q0]=by[q0]||[]).push(s)});
   Object.keys(by).map(Number).sort((a,b)=>a-b).forEach(q=>{const st=by[q];(who[q]=who[q]||new Set()).add(ti);const maxCap=(q===18||q===19)?7:6;let g=Math.ceil(st.length/maxCap),gr;
    for(;;g++){gr=Array.from({length:g},()=>[]);let ok=true;
     const deg=s=>st.filter(o=>bad.has(s.id+"|"+o.id)).length;
@@ -111,8 +114,9 @@ function makeGroups(){
     if(ok||g>=st.length)break}
    gr.filter(x=>x.length).forEach((x,gi,ar)=>col.groups.push({skill:q,part:ar.length>1?gi+1:0,students:x,ti}))});
   col.count=j-i;
-  if(col.count>22)col.warn.push(col.count+" students, over the 22-student limit");
-  else if(col.count<18&&!unset)col.warn.push(col.count+" students, under the 18-student minimum (not enough students overall)");
+      const [lo,hi]=LIM[ti]||[18,22];
+  if(col.count>hi)col.warn.push(col.count+" students, over the "+hi+"-student limit");
+  else if(col.count<lo&&!unset)col.warn.push(col.count+" students, under the "+lo+"-student minimum (not enough students overall)");                       
   if(arr[j-1].s-arr[i].s>3)col.warn.push("skills span "+(arr[j-1].s-arr[i].s)+" levels (max 3)")});
  cols.forEach((c,ti)=>c.groups.forEach(g=>{g.also=[...who[g.skill]].filter(t=>t!==ti).map(t=>t+1)}));
  return{cols,unset,excl,total:N}}
@@ -142,10 +146,10 @@ return`<h1>${k} roster</h1>
 <ul class="pairs">${pl.map(p=>`<li>${esc(nm(p[0]))} and ${esc(nm(p[1]))} <button class="btn sm" data-act="unpair" data-a="${p[0]}" data-b="${p[1]}">Remove</button></li>`).join("")||'<li class="mut">No pairs yet.</li>'}</ul>
 <div class="row"><button class="btn" data-go="#/t/${k}">Back</button></div>`}
 function vGroups(){crumb.textContent="RTI groupings";const r=makeGroups();
-const legend=TEACHERS.map(k=>`<span style="background:${TC[k]}">${k}</span>`).join("")+`<span class="pill" style="border-color:var(--line)">Max 6 per group</span>`;
-const msgs=[];if(r.unset)msgs.push(`${r.unset} students have no current skill yet and are left out.${" Classes need 18–22 students, so sizes settle once every student has a skill."}`);
+const legend=TEACHERS.map(k=>`<button class="btn sm" data-go="#/t/${k}" title="Go to ${k}'s page" style="background:${TC[k]};color:#1E1B4B;border:2px solid rgba(255,255,255,.75);border-radius:99px;font-weight:600">${k}</button>`).join("")+`<span class="pill" style="border-color:var(--line)">Max 6 per group (7 for Multi-Syllable Open &amp; Enrichment)</span>`;
+const msgs=[];if(r.unset)msgs.push(`${r.unset} students have no current skill yet and are left out. Class sizes settle once every student has a skill.`);
 r.cols.forEach((c,i)=>c.warn.forEach(w=>msgs.push(`Teacher ${i+1}: ${w}.`)));
-const cols=r.cols.map((c,i)=>`<div class="col" style="--c1:${CC[i%CC.length][0]};--c2:${CC[i%CC.length][1]}"><div class="hd">Teacher ${i+1}</div><div class="ct">${c.count} Students</div>${c.groups.map(g=>`<div class="gh">${SK[g.skill]}${g.part?" (group "+g.part+")":""}${g.also.length?`<br><small class="mut">also with Teacher ${g.also.join(", ")}</small>`:""}</div>${g.students.map(s=>`<div class="st" style="background:${TC[s.home]}">${esc(s.n)}</div>`).join("")}`).join("")}</div>`).join("");
+const cols=r.cols.map((c,i)=>`<div class="col" style="--c1:${CC[i%CC.length][0]};--c2:${CC[i%CC.length][1]}"><div class="hd">Teacher ${i+1}</div><div class="ct">${c.count} Students</div>${c.groups.map(g=>`<div class="gh">${GN[g.skill]||SK[g.skill]}${g.part?" (group "+g.part+")":""}${g.also.length?`<br><small class="mut">also with Teacher ${g.also.join(", ")}</small>`:""}</div>${g.students.map(s=>`<div class="st" style="background:${TC[s.home]}">${esc(s.n)}</div>`).join("")}`).join("")}</div>`).join("");
 return`<h1>RTI groupings</h1><div class="legend" aria-label="Color key: each student is highlighted in their teacher's color">${legend}</div>
 ${msgs.map(m=>`<div class="note">${m}</div>`).join("")}
 ${r.total?`<div class="cols">${cols}</div>`:`<div class="note" style="border-left-color:var(--acc)">No groups yet. Each teacher picks a current skill for every student under “Update data”.</div>`}
