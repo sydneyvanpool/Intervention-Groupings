@@ -100,7 +100,7 @@ function makeGroups(){
  const cost=(i,j,ti)=>{const [lo,hi]=LIM[ti]||[18,22],sz=j-i,span=K(arr[j-1].s)-K(arr[i].s),soft=(ti===1||ti===2),w=soft?5:1e5;
   let p=(sz-(lo+hi)/2)**2*.05;
   if(sz<lo)p+=(lo-sz)**2*w;if(sz>hi)p+=(sz-hi)**2*w;if(span>5)p+=(span-5)*100;
-  if(j<N&&K(arr[j-1].s)===K(arr[j].s))p+=3000;return p};
+  if(j<N&&K(arr[j-1].s)===K(arr[j].s))p+=30000;return p};
  const INF=1e18,dp=Array.from({length:k+1},()=>Array(N+1).fill(INF)),bk=Array.from({length:k+1},()=>Array(N+1).fill(0));
  dp[0][0]=0;
  for(let m=1;m<=k;m++)for(let j=m;j<=N;j++)for(let i=m-1;i<j;i++){if(dp[m-1][i]>=INF)continue;const c=dp[m-1][i]+cost(i,j,m-1);if(c<dp[m][j]){dp[m][j]=c;bk[m][j]=i}}
