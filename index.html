@@ -166,7 +166,7 @@ ${msgs.map(m=>`<div class="note">${m}</div>`).join("")}
 ${r.total?`<div class="cols">${cols}</div>`:`<div class="note" style="border-left-color:var(--acc)">No groups yet. Each teacher picks a current skill for every student under “Update data”.</div>`}
 <div class="row noprint"><button class="btn" data-go="#/">Home</button><button class="btn" onclick="print()">Print</button></div>`}
 
-const ADMIN_PW=Elizab3th!;
+const ADMIN_PW="Elizab3th!";
 let isAdmin=false,dragKey=null;
 function vLock(){crumb.textContent="Admin";return`<div class="center"><h1>Admin</h1><p class="mut">Enter the admin password to move groups.</p>
 <div class="f" style="justify-content:center"><input type="password" id="pw" placeholder="Password" aria-label="Admin password"><button class="btn" data-act="unlock">Unlock</button></div>
