@@ -68,7 +68,7 @@ td input[type=checkbox]{width:22px;height:22px;accent-color:var(--acc2)}
 const SK=["Upper Letter ID","Lower Letter ID","Vowel Names","Consonant Sounds","Long Vowel Sounds","Short Vowel Sounds","CVC Short Vowel","Onset Rime","Beginning Consonant Digraphs","Ending Consonant Digraphs","Beginning Consonant Blends","Multi-Syllable Closed","Ending Consonant Blends","Long Vowel Silent E","Long Vowel Digraphs","Other Vowel Digraphs","Vowel Diphthongs","R/L Controlled","Multi-Syllable Open","Enrichment"];
 const MERGE={7:6,9:8,12:10};            // Onset Rime→CVC, Ending Digraphs→Digraphs, Ending Blends→Blends
 const GN={6:"CVC",8:"Digraphs",10:"Blends"}; // display names for merged groups
-const LIM=[[15,18],[18,22],[18,22],[18,22],[20,25]]; // per-teacher min/max class size
+const LIM=[[15,18],[18,22],[18,24],[18,25],[20,30]]; // per-teacher min/max class size
 const TC={Magee:"#FFD93D",Eppes:"#FF8CC6",Bosse:"#5FD6EE",Gober:"#B197FC",Vanpool:"#FFA24D"};
 const CC=[["#7C3AED","#C026D3"],["#EC4899","#F97316"],["#0EA5E9","#6366F1"],["#10B981","#0EA5E9"],["#F59E0B","#EF4444"]];
 const RAW={
@@ -96,9 +96,10 @@ function makeGroups(){
  const N=arr.length,T=TEACHERS.length,cols=TEACHERS.map(()=>({groups:[],count:0,warn:[]}));
  if(!N)return{cols,unset,excl,total:0};
  const k=Math.min(T,N),avg=N/k;
-  const cost=(i,j,ti)=>{const [lo,hi]=LIM[ti]||[18,22],sz=j-i,span=arr[j-1].s-arr[i].s;let p=(sz-(lo+hi)/2)**2*.05;
-  if(sz<lo)p+=(lo-sz)**2*1e5;if(sz>hi)p+=(sz-hi)**2*1e5;if(span>3)p+=(span-3)*8;
-  if(j<N&&(MERGE[arr[j-1].s]??arr[j-1].s)===(MERGE[arr[j].s]??arr[j].s))p+=30;return p};
+ const cost=(i,j,ti)=>{const [lo,hi]=LIM[ti]||[18,22],sz=j-i,span=arr[j-1].s-arr[i].s,soft=(ti===1||ti===2),w=soft?5:1e5;
+  let p=(sz-(lo+hi)/2)**2*.05;
+  if(sz<lo)p+=(lo-sz)**2*w;if(sz>hi)p+=(sz-hi)**2*w;if(span>5)p+=(span-5)*100;
+  if(j<N&&(MERGE[arr[j-1].s]??arr[j-1].s)===(MERGE[arr[j].s]??arr[j].s))p+=(ti<=2?2000:30);return p};
  const INF=1e18,dp=Array.from({length:k+1},()=>Array(N+1).fill(INF)),bk=Array.from({length:k+1},()=>Array(N+1).fill(0));
  dp[0][0]=0;
  for(let m=1;m<=k;m++)for(let j=m;j<=N;j++)for(let i=m-1;i<j;i++){if(dp[m-1][i]>=INF)continue;const c=dp[m-1][i]+cost(i,j,m-1);if(c<dp[m][j]){dp[m][j]=c;bk[m][j]=i}}
@@ -117,7 +118,7 @@ function makeGroups(){
       const [lo,hi]=LIM[ti]||[18,22];
   if(col.count>hi)col.warn.push(col.count+" students, over the "+hi+"-student limit");
   else if(col.count<lo&&!unset)col.warn.push(col.count+" students, under the "+lo+"-student minimum (not enough students overall)");                       
-  if(arr[j-1].s-arr[i].s>3)col.warn.push("skills span "+(arr[j-1].s-arr[i].s)+" levels (max 3)")});
+  if(arr[j-1].s-arr[i].s>5)col.warn.push("skills span "+(arr[j-1].s-arr[i].s)+" levels (max 5)")});
  cols.forEach((c,ti)=>c.groups.forEach(g=>{g.also=[...who[g.skill]].filter(t=>t!==ti).map(t=>t+1)}));
  return{cols,unset,excl,total:N}}
 
