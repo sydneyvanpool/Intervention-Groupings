@@ -120,7 +120,16 @@ function makeGroups(){
   if(col.count>hi)col.warn.push(col.count+" students, over the "+hi+"-student limit");
   else if(col.count<lo&&!unset)col.warn.push(col.count+" students, under the "+lo+"-student minimum (not enough students overall)");                       
   if(K(arr[j-1].s)-K(arr[i].s)>5)col.warn.push("skills span "+(K(arr[j-1].s)-K(arr[i].s))+" levels (max 5)")});
- cols.forEach((c,ti)=>c.groups.forEach(g=>{g.also=[...who[g.skill]].filter(t=>t!==ti).map(t=>t+1)}));
+  cols.forEach(c=>c.groups.forEach(g=>{g.key=g.students.map(s=>s.id).sort().join(",")}));
+ const OVR=S.over||{};let moved=0;
+ cols.forEach((c,ti)=>{c.groups=c.groups.filter(g=>{const to=OVR[g.key];if(to!==undefined&&to!==ti&&cols[to]){cols[to].groups.push(g);moved++;return false}return true})});
+ if(moved){cols.forEach((c,ti)=>{c.groups.sort((a,b)=>a.skill-b.skill||a.part-b.part);c.count=c.groups.reduce((n,g)=>n+g.students.length,0);
+  const [lo,hi]=LIM[ti]||[18,22],ks=c.groups.map(g=>g.skill);c.warn=[];
+  if(c.count>hi)c.warn.push(c.count+" students, over the "+hi+"-student limit");
+  else if(c.count<lo&&!unset)c.warn.push(c.count+" students, under the "+lo+"-student minimum");
+  if(ks.length&&Math.max(...ks)-Math.min(...ks)>5)c.warn.push("skills span "+(Math.max(...ks)-Math.min(...ks))+" levels (max 5)")})}
+ const w2={};cols.forEach((c,ti)=>c.groups.forEach(g=>{(w2[g.skill]=w2[g.skill]||new Set()).add(ti)}));
+ cols.forEach((c,ti)=>c.groups.forEach(g=>{g.also=[...w2[g.skill]].filter(t=>t!==ti).map(t=>t+1)}));
  return{cols,unset,excl,total:N}}
 
 /* ---------- views ---------- */
@@ -132,7 +141,7 @@ function vWelcome(){crumb.textContent="";return`<div class="center"><span class=
 <p class="mut" style="margin-top:44px;font-size:.88rem">Just exploring? <button class="btn sm" data-act="demo">Fill empty skills with sample data</button> <button class="btn sm" data-act="reset">Reset everything</button></p></div>`}
 function vTeacher(k){crumb.textContent=k;const l=S.t[k],set=l.filter(s=>s.s>=0).length;
 return`<div class="center"><h1>Welcome, ${k}</h1><p class="mut">${l.length} students · ${set} with a current skill</p>
-<div class="row"><button class="btn big" data-go="#/t/${k}/update">Update data</button><button class="btn big" data-go="#/groups">View RTI groupings</button><button class="btn big" data-go="#/t/${k}/roster">Edit roster</button></div></div>`}
+<div class="row"><button class="btn big" data-go="#/t/${k}/update">Update data</button><button class="btn big" data-go="#/groups">View RTI groupings</button><button class="btn big" data-go="#/t/${k}/roster">Edit roster</button></div>${k==="Vanpool"?'<div class="row"><button class="btn" data-go="#/admin">🔒 Admin: move groups</button></div>':""}</div>
 function vUpdate(k){crumb.textContent=k+" › Update data";const l=S.t[k];
 const rows=l.map(s=>`<tr><td>${esc(s.n)}</td><td>${s.d||"–"}</td><td><select class="sk" data-id="${s.id}" aria-label="Current skill for ${esc(s.n)}"><option value="-1">Choose a skill…</option>${SK.map((x,i)=>`<option value="${i}"${s.s===i?" selected":""}>${x}</option>`).join("")}</select></td><td><input type="checkbox" class="ex" data-id="${s.id}"${s.x?" checked":""} aria-label="Exclude ${esc(s.n)} from groups"></td></tr>`).join("");
 return`<h1>${k} update data</h1><p class="mut">Changes save automatically.</p><div class="wrap"><table><thead><tr><th>Roster</th><th>Last update</th><th>Current skill</th><th>Exclude from groups</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -157,8 +166,32 @@ ${msgs.map(m=>`<div class="note">${m}</div>`).join("")}
 ${r.total?`<div class="cols">${cols}</div>`:`<div class="note" style="border-left-color:var(--acc)">No groups yet. Each teacher picks a current skill for every student under “Update data”.</div>`}
 <div class="row noprint"><button class="btn" data-go="#/">Home</button><button class="btn" onclick="print()">Print</button></div>`}
 
-function route(){const h=location.hash.replace(/^#\/?/,"").split("/");let v;
- if(h[0]==="groups")v=vGroups();else if(h[0]==="t"&&S.t[h[1]]){v=h[2]==="update"?vUpdate(h[1]):h[2]==="roster"?vRoster(h[1]):vTeacher(h[1])}else v=vWelcome();
+const ADMIN_PW="Elizab3th!";
+let isAdmin=false,dragKey=null;
+function vLock(){crumb.textContent="Admin";return`<div class="center"><h1>Admin</h1><p class="mut">Enter the admin password to move groups.</p>
+<div class="f" style="justify-content:center"><input type="password" id="pw" placeholder="Password" aria-label="Admin password"><button class="btn" data-act="unlock">Unlock</button></div>
+<div class="row"><button class="btn" data-go="#/t/Vanpool">Back</button></div></div>`}
+function vAdmin(){crumb.textContent="Admin › Move groups";const r=makeGroups();
+const cols=r.cols.map((c,i)=>`<div class="col dz" data-ti="${i}" style="--c1:${CC[i%CC.length][0]};--c2:${CC[i%CC.length][1]}"><div class="hd">Teacher ${i+1}</div><div class="ct">${c.count} Students</div>${c.groups.map(g=>`<div class="grp" draggable="true" data-key="${esc(g.key)}"><div class="gh">${GN[g.skill]||SK[g.skill]}${g.part?" (group "+g.part+")":""}<br><select class="mv" data-key="${esc(g.key)}" aria-label="Move this group to another teacher">${r.cols.map((_,t)=>`<option value="${t}"${t===i?" selected":""}>Teacher ${t+1}</option>`).join("")}</select></div>${g.students.map(s=>`<div class="st" style="background:${TC[s.home]}">${esc(s.n)}</div>`).join("")}</div>`).join("")}</div>`).join("");
+const msgs=r.cols.map((c,i)=>c.warn.map(w=>`<div class="note">Teacher ${i+1}: ${w}.</div>`).join("")).join("");
+return`<style>.grp{cursor:grab}.grp.drag{opacity:.4}.dz.over{outline:3px dashed var(--acc2);outline-offset:3px}.mv{font:inherit;font-size:.8rem;padding:3px 8px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);margin-top:4px}</style>
+<h1>Move groups</h1><p class="mut">Drag a group onto another teacher's column, or use the dropdown in its header. Moves are saved for everyone.</p>
+${msgs}
+${r.total?`<div class="cols">${cols}</div>`:`<div class="note">No groups yet.</div>`}
+<div class="row"><button class="btn" data-act="clearmoves">Clear all moves</button><button class="btn" data-go="#/groups">View RTI groupings</button><button class="btn" data-act="lock">Lock &amp; exit</button></div>`}
+function moveGroup(key,to){S.over=S.over||{};S.over[key]=to;save();route()}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act;
+ if(a==="unlock"){if(document.getElementById("pw").value===ADMIN_PW){isAdmin=true;route()}else alert("Incorrect password.")}
+ if(a==="lock"){isAdmin=false;location.hash="#/t/Vanpool"}
+ if(a==="clearmoves"&&confirm("Put every group back where the program placed it?")){S.over={};save();route()}});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="pw"){const u=document.querySelector('[data-act="unlock"]');if(u)u.click()}});
+document.addEventListener("change",e=>{const t=e.target;if(t.classList&&t.classList.contains("mv")&&isAdmin)moveGroup(t.dataset.key,+t.value)});
+document.addEventListener("dragstart",e=>{const g=e.target.closest&&e.target.closest(".grp");if(!g||!isAdmin)return;dragKey=g.dataset.key;e.dataTransfer.setData("text/plain",dragKey);e.dataTransfer.effectAllowed="move";g.classList.add("drag")});
+document.addEventListener("dragover",e=>{const z=e.target.closest&&e.target.closest(".dz");if(!z||!dragKey)return;e.preventDefault();document.querySelectorAll(".dz.over").forEach(x=>{if(x!==z)x.classList.remove("over")});z.classList.add("over")});
+document.addEventListener("drop",e=>{const z=e.target.closest&&e.target.closest(".dz");if(!z||!dragKey||!isAdmin)return;e.preventDefault();const k=dragKey;dragKey=null;moveGroup(k,+z.dataset.ti)});
+document.addEventListener("dragend",()=>{dragKey=null;document.querySelectorAll(".drag,.over").forEach(x=>x.classList.remove("drag","over"))});
+ function route(){const h=location.hash.replace(/^#\/?/,"").split("/");let v;
+ if(h[0]==="groups")v=vGroups();else if(h[0]==="admin")v=isAdmin?vAdmin():vLock();else if(h[0]==="t"&&S.t[h[1]]){v=h[2]==="update"?vUpdate(h[1]):h[2]==="roster"?vRoster(h[1]):vTeacher(h[1])}else v=vWelcome();
  app.innerHTML=v;window.scrollTo(0,0)}
 const find=id=>all().length&&TEACHERS.map(k=>S.t[k].find(s=>s.id===id)).find(Boolean);
 document.addEventListener("click",e=>{const b=e.target.closest("[data-go],[data-act]");if(!b)return;
